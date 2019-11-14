@@ -36,16 +36,16 @@ const typeDefs = gql`
     }
 
     type Query {
-        allUsers: [User]
-        allProducts: [Product]
+        allUsers: [User] @auth(role: ADMIN)
+        allProducts: [Product] 
     }
 
     type Mutation {
-        createUser(data: CreateUserInput): User
-        deleteUser(id: ID!): Boolean
+        createUser(data: CreateUserInput): User @auth(role: ADMIN)
+        deleteUser(id: ID!): Boolean @auth(role: ADMIN)
 
-        createProduct(data: CreateProductInput): Product
-        deleteProduct(id: ID!): Boolean
+        createProduct(data: CreateProductInput): Product @auth(role: ADMIN)
+        deleteProduct(id: ID!): Boolean @auth(role: ADMIN)
 
         signin(
             email: String!
