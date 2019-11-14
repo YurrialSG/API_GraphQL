@@ -1,7 +1,7 @@
 const { ApolloServer, gql, PubSub } = require('apollo-server')
 const Sequelize = require('./database')
 const User = require('./models/user')
-const Course = require('./models/course')
+const Product = require('./models/product')
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
 const AuthDirective = require('./directives/auth')
@@ -25,29 +25,27 @@ const typeDefs = gql`
         email: String!
         password: String!
         role: RoleEnum!
-        course: [Course]
     }
 
-    type Course {
+    type Product {
         id: ID!
+        barcode: String!
         description: String!
-        duration: String!
-        initialDate: String!
-        finalDate: String!
-        user: User!
+        pricekg: String!
+        produced: String!
     }
 
     type Query {
         allUsers: [User]
-        allCourses: [Course]
+        allProducts: [Product]
     }
 
     type Mutation {
         createUser(data: CreateUserInput): User
         deleteUser(id: ID!): Boolean
 
-        createCourse(data: CreateCourseInput): Course @auth(role: ADMIN)
-        deleteCourse(id: ID!): Boolean @auth(role: ADMIN)
+        createProduct(data: CreateProductInput): Product
+        deleteProduct(id: ID!): Boolean
 
         signin(
             email: String!
@@ -68,16 +66,11 @@ const typeDefs = gql`
         role: RoleEnum!
     }
 
-    input CreateCourseInput {
+    input CreateProductInput {
+        barcode: String!
         description: String!
-        duration: String!
-        initialDate: String!
-        finalDate: String!
-        user: createTimerUserInput
-    }
-
-    input createTimerUserInput {
-        id: ID!
+        pricekg: String!
+        produced: String!
     }
 
 `
@@ -86,11 +79,11 @@ const resolver = {
     Query: {
         //listando todos os usuários
         allUsers() {
-            return User.findAll({ include: [Course] })
+            return User.findAll()
         },
         //listando todos os cursos
-        allCourses() {
-            return Course.findAll({ include: [User] })
+        allProducts() {
+            return Product.findAll()
         }
     },
     Mutation: {
@@ -98,7 +91,7 @@ const resolver = {
         async createUser(parent, body, context, info) {
             body.data.password = await bcrypt.hash(body.data.password, 10)
             const user = await User.create(body.data)
-            const reloadedUser = user.reload({ include: [Course] })
+            const reloadedUser = user.reload()
             return reloadedUser
         },
         async deleteUser(parent, body, context, info) {
@@ -112,19 +105,19 @@ const resolver = {
             return true
         },
         //gerenciando cursos
-        async createCourse(parent, body, context, info) {
-            const course = await Course.create(body.data)
-            const reloadedCourse = course.reload({ include: [User] })
-            return reloadedCourse
+        async createProduct(parent, body, context, info) {
+            const product = await Product.create(body.data)
+            const reloadedProduct = product.reload()
+            return reloadedProduct
         },
-        async deleteCourse(parent, body, context, info) {
-            const course = await Course.findOne({
+        async deleteProduct(parent, body, context, info) {
+            const product = await Product.findOne({
                 where: { id: body.id }
             })
-            if(!course) {
-                throw new Error('Curso não encontrado')
+            if(!product) {
+                throw new Error('Produto não encontrado')
             }
-            await course.destroy()
+            await product.destroy()
             return true
         },
         //realizando login
@@ -171,6 +164,6 @@ const server = new ApolloServer({
 Sequelize.sync().then(() => {
     server.listen()
         .then(() => {
-            console.log('Servidor rodando')
+            console.log(`🚀 Server ready at port http://localhost:4000/api`);
         })
 })
