@@ -25,6 +25,7 @@ const typeDefs = gql`
         email: String!
         password: String!
         role: RoleEnum!
+        product: [Product]
     }
 
     type Product {
@@ -33,6 +34,7 @@ const typeDefs = gql`
         description: String!
         pricekg: String!
         produced: String!
+        user: User!
     }
 
     type Query {
@@ -41,11 +43,11 @@ const typeDefs = gql`
     }
 
     type Mutation {
-        createUser(data: CreateUserInput): User @auth(role: ADMIN)
-        deleteUser(id: ID!): Boolean @auth(role: ADMIN)
+        createUser(data: CreateUserInput): User
+        deleteUser(id: ID!): Boolean
 
         createProduct(data: CreateProductInput): Product @auth(role: ADMIN)
-        deleteProduct(id: ID!): Boolean @auth(role: ADMIN)
+        deleteProduct(id: ID!): Boolean
 
         signin(
             email: String!
@@ -71,6 +73,11 @@ const typeDefs = gql`
         description: String!
         pricekg: String!
         produced: String!
+        user: createProductUserInput!
+    }
+
+    input createProductUserInput {
+        id: ID!
     }
 
 `
@@ -82,8 +89,16 @@ const resolver = {
             return User.findAll()
         },
         //listando todos os cursos
-        allProducts() {
-            return Product.findAll()
+        async allProducts(parent, body, context, info) {
+            if (context.user) {
+                    const productID = await Product.findAll({
+                        include: [User]
+                    })
+                    if (!productID) {
+                        throw new Error('Usuário não encontrado')
+                    }
+                    return productID
+            }
         }
     },
     Mutation: {
@@ -98,7 +113,7 @@ const resolver = {
             const user = await User.findOne({
                 where: { id: body.id }
             })
-            if(!user) {
+            if (!user) {
                 throw new Error('Usuário não encontrado')
             }
             await user.destroy()
@@ -106,15 +121,19 @@ const resolver = {
         },
         //gerenciando cursos
         async createProduct(parent, body, context, info) {
-            const product = await Product.create(body.data)
-            const reloadedProduct = product.reload()
-            return reloadedProduct
+            console.log(body.data.user)
+            if (body.data.user) {
+                const product = await Product.create(body.data)
+                await product.setUser(body.data.user.id)
+                const reloadedProduct = product.reload({ include: [User] })
+                return reloadedProduct
+            }
         },
         async deleteProduct(parent, body, context, info) {
             const product = await Product.findOne({
                 where: { id: body.id }
             })
-            if(!product) {
+            if (!product) {
                 throw new Error('Produto não encontrado')
             }
             await product.destroy()
@@ -126,9 +145,9 @@ const resolver = {
                 where: { email: body.email }
             })
 
-            if(user) {
+            if (user) {
                 const isCorrect = await bcrypt.compare(body.password, user.password)
-                if(!isCorrect) {
+                if (!isCorrect) {
                     throw new Error('Senha inválida')
                 }
                 const token = jwt.sign({ id: user.id }, 'secret')
@@ -149,9 +168,21 @@ const server = new ApolloServer({
         auth: AuthDirective
     },
     //context: ({ req, res }) => ({req, res})
-    context({ req, connection }) {
+    async context({ req, connection }) {
         if (connection) {
             return connection.context
+        }
+
+        const token = req.headers.authorization
+
+        if (token) {
+            const jwtData = jwt.decode(token.replace('Bearer ', ''))
+            const { id } = jwtData
+
+            return {
+                headers: req.headers,
+                user: id
+            }
         }
 
         return {
