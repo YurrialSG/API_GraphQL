@@ -25,7 +25,6 @@ const typeDefs = gql`
         email: String!
         password: String!
         role: RoleEnum!
-        product: [Product]
     }
 
     type Product {
@@ -34,7 +33,6 @@ const typeDefs = gql`
         description: String!
         pricekg: String!
         produced: String!
-        user: User!
     }
 
     type Query {
@@ -73,11 +71,6 @@ const typeDefs = gql`
         description: String!
         pricekg: String!
         produced: String!
-        user: createProductUserInput!
-    }
-
-    input createProductUserInput {
-        id: ID!
     }
 
 `
@@ -89,16 +82,8 @@ const resolver = {
             return User.findAll()
         },
         //listando todos os cursos
-        async allProducts(parent, body, context, info) {
-            if (context.user) {
-                    const productID = await Product.findAll({
-                        include: [User]
-                    })
-                    if (!productID) {
-                        throw new Error('Usuário não encontrado')
-                    }
-                    return productID
-            }
+        async allProducts() {
+            return Product.findAll()
         }
     },
     Mutation: {
@@ -121,13 +106,9 @@ const resolver = {
         },
         //gerenciando cursos
         async createProduct(parent, body, context, info) {
-            console.log(body.data.user)
-            if (body.data.user) {
-                const product = await Product.create(body.data)
-                await product.setUser(body.data.user.id)
-                const reloadedProduct = product.reload({ include: [User] })
-                return reloadedProduct
-            }
+            const product = await Product.create(body.data)
+            const reloadedProduct = product.reload()
+            return reloadedProduct
         },
         async deleteProduct(parent, body, context, info) {
             const product = await Product.findOne({
@@ -173,17 +154,17 @@ const server = new ApolloServer({
             return connection.context
         }
 
-        const token = req.headers.authorization
+        // const token = req.headers.authorization
 
-        if (token) {
-            const jwtData = jwt.decode(token.replace('Bearer ', ''))
-            const { id } = jwtData
+        // if (token) {
+        //     const jwtData = jwt.decode(token.replace('Bearer ', ''))
+        //     const { id } = jwtData
 
-            return {
-                headers: req.headers,
-                user: id
-            }
-        }
+        //     return {
+        //         headers: req.headers,
+        //         user: id
+        //     }
+        // }
 
         return {
             headers: req.headers,
