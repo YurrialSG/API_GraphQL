@@ -174,8 +174,7 @@ const server = new ApolloServer({
 
 
 Sequelize.sync().then(() => {
-    server.listen()
-        .then(() => {
-            console.log(`🚀 Server ready at port http://localhost:4000/api`);
-        })
+    server.listen({ port: process.env.PORT || 4000 }).then(({ url }) => {
+        console.log(`🚀 Server ready at ${url}`);
+    });
 })
